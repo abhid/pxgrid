@@ -17,7 +17,6 @@ module Pxgrid
         conn.headers["Accept"] = "application/json"
         conn.headers["Content-Type"] = "application/json"
       end
-      puts credentials
       if credentials && credentials[:username] && credentials[:password]
         # Looks like we have an account. Validate the account.
         @username = credentials[:username]
@@ -96,6 +95,37 @@ module Pxgrid
           params = {"startTimestamp": startTimestamp}
         end
         return JSON.parse(@client.post("getSessions", params.to_json).body)["sessions"]
+      end
+    end
+
+    class Radius
+      SERVICE = "com.cisco.ise.radius"
+      @nodeName = ""
+      @username = ""
+      @password = ""
+      @client = ""
+      def initialize(pxgrid_client)
+        service = pxgrid_client.serviceLookup(SERVICE)["services"].sample
+        @nodeName = service["nodeName"]
+        @username = pxgrid_client.username
+        @password = pxgrid_client.accessSecret(@nodeName)
+
+        @client = Faraday.new(service["properties"]["restBaseUrl"]) do |conn|
+          conn.adapter Faraday.default_adapter
+          conn.basic_auth @username, @password
+          conn.ssl[:verify] = false
+          conn.headers["Accept"] = "application/json"
+          conn.headers["Content-Type"] = "application/json"
+        end
+      end
+
+      def getFailures(startTimestamp = "")
+        if startTimestamp.empty?
+          params = {}
+        else
+          params = {"startTimestamp": startTimestamp}
+        end
+        return JSON.parse(@client.post("getFailures", params.to_json).body)["failures"]
       end
     end
   end
